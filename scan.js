@@ -1,0 +1,115 @@
+import { MAX_PRIORITY } from "./config.js";
+
+/**
+ * Altura efectiva de una casilla: la prioridad mas alta de todos sus tiles.
+ * Es exactamente lo que el plugin lee para decidir si la casilla es suelo
+ * (0, se tumba en el plano y recibe el taper) o un elemento vertical (N, se
+ * pone de pie apoyado N filas mas abajo).
+ *
+ * Devuelve null si la casilla esta vacia en todas las capas: en 2D no se nota
+ * porque queda fuera de pantalla, pero en 2.5D la camara ve mas lejos y se
+ * dibuja como un agujero negro.
+ */
+export function cellHeight(ctx, mapId, layers, defaultTilesetId, x, y) {
+  let best = null;
+  for (const layer of layers) {
+    if (layer.kind === "shadow") continue;
+    const tileId = ctx.map.readTile(mapId, layer.index, x, y);
+    if (!tileId) continue;
+
+    // Los tiles de capa extendida pueden venir de otro tileset.
+    let tilesetId = defaultTilesetId;
+    if (ctx.map.readTileData) {
+      const data = ctx.map.readTileData(mapId, layer.index, x, y);
+      if (data && data.tilesetId != null) tilesetId = data.tilesetId;
+    }
+
+    const props = resolveProps(ctx, tileId, tilesetId);
+    const priority = props ? props.priority || 0 : 0;
+    if (best === null || priority > best) best = priority;
+  }
+  return best;
+}
+
+function resolveProps(ctx, tileId, tilesetId) {
+  const ts = ctx.tileset;
+  if (ts.resolveTileProperties) return ts.resolveTileProperties(tileId, tilesetId);
+  if (tilesetId == null) return null;
+  return ts.getTileProperties(tilesetId, tileId);
+}
+
+/**
+ * Recorre el mapa y devuelve la rejilla de alturas mas los problemas que el
+ * plugin no puede resolver solo. Solo se comprueban fallos DOCUMENTADOS en el
+ * AI_GUIDE del plugin: inventar reglas propias generaria ruido y la gente
+ * dejaria de mirar el informe.
+ */
+export function scanMap(ctx, mapId) {
+  const info = ctx.map.info(mapId);
+  if (!info) return null;
+  const layers = ctx.map.layers(mapId).filter((l) => l.kind !== "shadow");
+  const tilesetId = info.tilesetId;
+
+  const heights = new Map();   // "x,y" -> altura (null = vacia)
+  const empty = [];
+  const tooTall = [];
+  const floating = [];
+
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      const h = cellHeight(ctx, mapId, layers, tilesetId, x, y);
+      heights.set(`${x},${y}`, h);
+      if (h === null) {
+        empty.push({ x, y });
+      } else if (h > MAX_PRIORITY) {
+        tooTall.push({ x, y, height: h });
+      }
+    }
+  }
+
+  // Columna que flota: el plugin apoya un tile de prioridad N en la casilla N
+  // filas mas abajo, asi que numerando de abajo arriba la casilla de debajo de
+  // una pieza alta nunca deberia ser suelo raso. Es el fallo que el AI_GUIDE
+  // nombra explicitamente ("NO dejar base en 0 si la copa tiene prioridad").
+  for (const [key, h] of heights) {
+    if (h === null || h < 2) continue;
+    const [x, y] = key.split(",").map(Number);
+    if (y + 1 >= info.height) continue;
+    const below = heights.get(`${x},${y + 1}`);
+    if (below === 0) floating.push({ x, y, height: h });
+  }
+
+  return { info, heights, empty, tooTall, floating };
+}
+
+/**
+ * Cache de alturas por mapa. El overlay se repinta en cada frame y resolver la
+ * altura casilla a casilla ahi dentro hace tirones al hacer scroll. Se calcula
+ * una vez y se tira entera cuando algo que la afecta cambia.
+ */
+const heightCache = new Map();   // mapId -> Map("x,y" -> altura)
+
+export function cachedHeight(ctx, mapId, layers, tilesetId, x, y) {
+  let grid = heightCache.get(mapId);
+  if (!grid) {
+    grid = new Map();
+    heightCache.set(mapId, grid);
+  }
+  const key = `${x},${y}`;
+  if (grid.has(key)) return grid.get(key);
+  const h = cellHeight(ctx, mapId, layers, tilesetId, x, y);
+  grid.set(key, h);
+  return h;
+}
+
+export function invalidateHeights(mapId) {
+  if (mapId == null) heightCache.clear();
+  else heightCache.delete(mapId);
+}
+
+/** Texto corto para el panel de resultados. */
+export function summarize(result) {
+  const total = result.empty.length + result.tooTall.length + result.floating.length;
+  if (total === 0) return "Sin problemas.";
+  return `${total} aviso(s).`;
+}

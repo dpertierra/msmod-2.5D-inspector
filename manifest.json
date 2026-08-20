@@ -1,0 +1,11 @@
+{
+  "id": "com.dpertierra.visual25d-inspector",
+  "name": "2.5D Inspector",
+  "version": "1.0.0",
+  "apiVersion": "1.0.0",
+  "main": "index.js",
+  "authors": [{ "name": "DPertierra" }],
+  "description": "Hace visible la geometria que el plugin Visual 2.5D HD lee del mapa: alturas por prioridad, tags de pared, y un validador de errores que en 2D no se ven.",
+  "permissions": ["ui.toasts", "ui.panels", "ui.overlays"],
+  "requires": []
+}
