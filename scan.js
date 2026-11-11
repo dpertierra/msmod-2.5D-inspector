@@ -54,6 +54,7 @@ export function scanMap(ctx, mapId) {
   const empty = [];
   const tooTall = [];
   const floating = [];
+  const stairStack = [];
 
   for (let y = 0; y < info.height; y++) {
     for (let x = 0; x < info.width; x++) {
@@ -79,7 +80,22 @@ export function scanMap(ctx, mapId) {
     if (below === 0) floating.push({ x, y, height: h });
   }
 
-  return { info, heights, empty, tooTall, floating };
+  // En una pila vertical, cada tile debe subir un nivel respecto al de abajo.
+  for (let x = 0; x < info.width; x++) {
+    for (let y = 0; y < info.height;) {
+      if ((heights.get(`${x},${y}`) || 0) <= 0) { y++; continue; }
+      let end = y;
+      while (end + 1 < info.height && heights.get(`${x},${end + 1}`) > 0) end++;
+      for (let row = end; row > y; row--) {
+        const lower = heights.get(`${x},${row}`);
+        const upper = heights.get(`${x},${row - 1}`);
+        if (upper !== lower + 1) stairStack.push({ x, y: row - 1, height: upper, below: lower });
+      }
+      y = end + 1;
+    }
+  }
+
+  return { info, heights, empty, tooTall, floating, stairStack };
 }
 
 /**
@@ -109,7 +125,7 @@ export function invalidateHeights(mapId) {
 
 /** Texto corto para el panel de resultados. */
 export function summarize(result) {
-  const total = result.empty.length + result.tooTall.length + result.floating.length;
+  const total = result.empty.length + result.tooTall.length + result.floating.length + result.stairStack.length;
   if (total === 0) return "Sin problemas.";
   return `${total} aviso(s).`;
 }

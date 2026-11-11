@@ -184,6 +184,7 @@ function renderReport(ctx, host) {
   const groups = [
     { key: "empty", title: "Casillas vacias", hint: "Se ven negras: la camara 2.5D llega mas lejos que la 2D. Rellenalas aunque queden fuera del area jugable." },
     { key: "floating", title: "Columnas que flotan", hint: "Pieza alta con suelo raso justo debajo. Numera de abajo arriba: base 1, encima 2..." },
+    { key: "stairStack", title: "Pila con escalones", hint: "En una pila vertical cada pieza debe subir una prioridad respecto a la de abajo." },
     { key: "tooTall", title: `Altura por encima de ${MAX_PRIORITY}`, hint: "El plugin la recorta a ese tope y salen cortes y Z mal." },
   ];
 
@@ -197,17 +198,61 @@ function renderReport(ctx, host) {
     html += `<div style="margin:10px 0 4px;font-weight:600">${g.title} — ${list.length}</div>`;
     html += `<div style="opacity:.7;margin-bottom:4px">${g.hint}</div>`;
     html += `<div style="height:140px;overflow:auto;resize:vertical;border:1px solid var(--border);border-radius:4px;padding:4px">`;
-    for (const item of list.slice(0, 200)) {
-      const extra = item.height != null ? ` (altura ${item.height})` : "";
-      html += `<div>x=${item.x}, y=${item.y}${extra}</div>`;
+    const ranges = groupRanges(list);
+    for (const range of ranges.slice(0, 200)) {
+      const extra = range.start === range.end && range.height != null ? ` (altura ${range.height})` : "";
+      const coords = range.axis === "x"
+        ? `x=${range.start}–${range.end}, y=${range.fixed}`
+        : range.axis === "y"
+          ? `x=${range.fixed}, y=${range.start}–${range.end}`
+          : `x=${range.start}, y=${range.fixed}`;
+      html += `<div>${coords}${extra}</div>`;
     }
-    if (list.length > 200) html += `<div style="opacity:.6">... y ${list.length - 200} mas</div>`;
+    if (ranges.length > 200) html += `<div style="opacity:.6">... y ${ranges.length - 200} rangos mas</div>`;
     html += `</div>`;
   }
 
   if (clean) html += `<div style="color:var(--accent)">Sin problemas.</div>`;
   html += `</div>`;
   host.innerHTML = html;
+}
+
+function groupRanges(items) {
+  const remaining = new Map(items.map((item) => [`${item.x},${item.y}`, item]));
+  const ranges = [];
+  const ordered = [...items].sort((a, b) => a.y - b.y || a.x - b.x);
+
+  for (const item of ordered) {
+    const key = `${item.x},${item.y}`;
+    if (!remaining.has(key)) continue;
+    const height = item.height;
+    let start = item.x;
+    let end = item.x;
+    let axis = "point";
+    let fixed = item.y;
+    remaining.delete(key);
+
+    while (remaining.has(`${end + 1},${item.y}`)) {
+      end++;
+      remaining.delete(`${end},${item.y}`);
+      axis = "x";
+    }
+    if (axis === "point") {
+      let nextY = item.y + 1;
+      while (remaining.has(`${item.x},${nextY}`)) {
+        remaining.delete(`${item.x},${nextY}`);
+        nextY++;
+        axis = "y";
+      }
+      if (axis === "y") {
+        start = item.y;
+        end = nextY - 1;
+        fixed = item.x;
+      }
+    }
+    ranges.push({ axis, fixed, start, end, height });
+  }
+  return ranges;
 }
 
 export function deactivate() {

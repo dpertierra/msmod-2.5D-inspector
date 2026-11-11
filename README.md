@@ -36,10 +36,20 @@ tapar el mapa. Las casillas vacías salen marcadas en rojo.
 |---|---|
 | Casillas vacías | La cámara 2.5D ve ~4-5 casillas más allá del borde: se dibujan negras |
 | Columnas que flotan | Pieza alta con suelo raso debajo. Hay que numerar de abajo arriba: base 1, encima 2… |
+| Pila con escalones | En una pila vertical, cada pieza debe subir una prioridad respecto a la de abajo; saltos y repeticiones dejan escalones visibles. |
 | Altura > 12 | El plugin la recorta al tope y salen cortes y Z mal |
 
-Solo se comprueban fallos **documentados** en el `AI_GUIDE.txt` del plugin.
-Inventar reglas propias generaría ruido y la gente dejaría de mirar el informe.
+Los avisos contiguos se agrupan en rangos de coordenadas en el panel.
+
+### Pendiente por falta de documentación de la API
+
+- Esquina de escalón lateral en terrain tag `Cliff` (19), informativa.
+- Alpha semitransparente en el tile inferior de cada casilla.
+- Clic en un aviso para seleccionar y centrar su casilla en el editor.
+
+No se implementaron porque los docs de la API de mods de Maker Studio no están
+disponibles en este equipo para confirmar lectura del terrain tag, alpha y
+selección/centrado del mapa.
 
 ## Instalación
 
