@@ -1,7 +1,7 @@
 {
   "id": "com.dpertierra.visual25d-inspector",
   "name": "2.5D Inspector",
-  "version": "1.1.3",
+  "version": "1.2.0",
   "apiVersion": "1.0.0",
   "main": "index.js",
   "authors": [

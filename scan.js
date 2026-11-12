@@ -55,6 +55,7 @@ export function scanMap(ctx, mapId) {
   const tooTall = [];
   const floating = [];
   const stairStack = [];
+  const postColumns = [];
 
   for (let y = 0; y < info.height; y++) {
     for (let x = 0; x < info.width; x++) {
@@ -80,7 +81,9 @@ export function scanMap(ctx, mapId) {
     if (below === 0) floating.push({ x, y, height: h });
   }
 
-  // En una pila vertical, cada tile debe subir un nivel respecto al de abajo.
+  // Si el tile de abajo no es la continuación (p-1), ambos pies quedan a
+  // distinta profundidad: la copa se dibuja sobre la base del otro objeto.
+  // Este es el mismo caso que antes se informaba como "Pila con escalones".
   for (let x = 0; x < info.width; x++) {
     for (let y = 0; y < info.height;) {
       if ((heights.get(`${x},${y}`) || 0) <= 0) { y++; continue; }
@@ -89,13 +92,30 @@ export function scanMap(ctx, mapId) {
       for (let row = end; row > y; row--) {
         const lower = heights.get(`${x},${row}`);
         const upper = heights.get(`${x},${row - 1}`);
-        if (upper !== lower + 1) stairStack.push({ x, y: row - 1, height: upper, below: lower });
+        if (upper > 0 && lower > 0 && lower !== upper - 1) {
+          stairStack.push({ x, y: row - 1, height: upper, below: lower });
+        }
+      }
+      // Tres o más piezas iguales por encima de prioridad 1 forman postes
+      // repetidos, que el render 2.5D muestra desplazados en escalera.
+      let runStart = y;
+      for (let row = y + 1; row <= end + 1; row++) {
+        const current = row <= end ? heights.get(`${x},${row}`) : null;
+        const previous = heights.get(`${x},${row - 1}`);
+        if (current !== previous) {
+          if (previous > 1 && row - runStart >= 3) {
+            for (let cellY = runStart; cellY < row; cellY++) {
+              postColumns.push({ x, y: cellY, height: previous });
+            }
+          }
+          runStart = row;
+        }
       }
       y = end + 1;
     }
   }
 
-  return { info, heights, empty, tooTall, floating, stairStack };
+  return { info, heights, empty, tooTall, floating, stairStack, postColumns };
 }
 
 /**
@@ -125,7 +145,7 @@ export function invalidateHeights(mapId) {
 
 /** Texto corto para el panel de resultados. */
 export function summarize(result) {
-  const total = result.empty.length + result.tooTall.length + result.floating.length + result.stairStack.length;
+  const total = result.empty.length + result.tooTall.length + result.floating.length + result.stairStack.length + result.postColumns.length;
   if (total === 0) return "Sin problemas.";
   return `${total} aviso(s).`;
 }

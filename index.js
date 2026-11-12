@@ -223,7 +223,8 @@ function renderReport(ctx, host) {
   const groups = [
     { key: "empty", title: "Casillas vacias", hint: "Se ven negras: la camara 2.5D llega mas lejos que la 2D. Rellenalas aunque queden fuera del area jugable." },
     { key: "floating", title: "Columnas que flotan", hint: "Pieza alta con suelo raso justo debajo. Numera de abajo arriba: base 1, encima 2..." },
-    { key: "stairStack", title: "Pila con escalones", hint: "En una pila vertical cada pieza debe subir una prioridad respecto a la de abajo." },
+    { key: "stairStack", title: "Copa sobre otro objeto", hint: "Dos piezas contiguas tienen pies distintos (pies = fila + prioridad): la copa se dibuja a la profundidad de sus pies y se monta sobre la base del otro objeto. Numera la pila de abajo arriba; este aviso reúne el antiguo caso de pila con escalones." },
+    { key: "postColumns", title: "Columna de postes", hint: "Tres o más casillas seguidas con la misma prioridad > 1 forman una escalera en 2.5D. Numéralas o usa el terrain tag 20 (InteriorWall)." },
     { key: "tooTall", title: `Altura por encima de ${MAX_PRIORITY}`, hint: "El plugin la recorta a ese tope y salen cortes y Z mal." },
   ];
 

@@ -36,7 +36,8 @@ tapar el mapa. Las casillas vacías salen marcadas en rojo.
 |---|---|
 | Casillas vacías | La cámara 2.5D ve ~4-5 casillas más allá del borde: se dibujan negras |
 | Columnas que flotan | Pieza alta con suelo raso debajo. Hay que numerar de abajo arriba: base 1, encima 2… |
-| Pila con escalones | En una pila vertical, cada pieza debe subir una prioridad respecto a la de abajo; saltos y repeticiones dejan escalones visibles. |
+| Copa sobre otro objeto | En casillas verticales contiguas de prioridad positiva, si la pieza de abajo no es la continuación (prioridad de abajo = prioridad de arriba − 1), sus pies quedan a distinta profundidad (`pies = fila + prioridad`) y la copa se monta sobre la base ajena. Reúne el antiguo aviso de pila con escalones para no duplicar el mismo caso. |
+| Columna de postes | Tres o más casillas seguidas en una columna con la misma prioridad > 1 salen en escalera en 2.5D. Numéralas o usa el terrain tag 20 (`InteriorWall`). |
 | Altura > 12 | El plugin la recorta al tope y salen cortes y Z mal |
 
 Los avisos contiguos se agrupan en rangos de coordenadas en el panel.
@@ -47,9 +48,12 @@ Los avisos contiguos se agrupan en rangos de coordenadas en el panel.
 - Alpha semitransparente en el tile inferior de cada casilla.
 - Clic en un aviso para seleccionar y centrar su casilla en el editor.
 
-No se implementaron porque los docs de la API de mods de Maker Studio no están
-disponibles en este equipo para confirmar lectura del terrain tag, alpha y
-selección/centrado del mapa.
+El aviso de alpha sigue pendiente: la API ofrece `getImageBlobUrl` para obtener
+la imagen del tileset, pero no documenta lectura de píxeles/alfa ni decodificación
+PNG desde el mod. No se añade una dependencia para analizarlo.
+
+La lectura del terrain tag y la selección/centrado del mapa también siguen
+pendientes de una API documentada para esas operaciones.
 
 ## Instalación
 
