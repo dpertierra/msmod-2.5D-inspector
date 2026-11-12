@@ -82,3 +82,8 @@ casilla a casilla en cada frame hace tirones al hacer scroll.
 
 `tileset.changed` con `reason: "selected"` no invalida: cambiar de tileset en la
 paleta no altera ninguna prioridad.
+
+El editor de tilesets no emite `tileset.changed` al editar una prioridad. Con el
+overlay visible, el mod compara cada 0,5 s la prioridad de los tiles que usa el
+mapa y, si cambia alguna, tira la caché y pide repintado
+(`ctx.editor.requestRedraw`). Así el overlay se actualiza sin tocar el mapa.

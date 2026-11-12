@@ -31,7 +31,7 @@ export function cellHeight(ctx, mapId, layers, defaultTilesetId, x, y) {
   return best;
 }
 
-function resolveProps(ctx, tileId, tilesetId) {
+export function resolveProps(ctx, tileId, tilesetId) {
   const ts = ctx.tileset;
   if (ts.resolveTileProperties) return ts.resolveTileProperties(tileId, tilesetId);
   if (tilesetId == null) return null;
@@ -128,4 +128,41 @@ export function summarize(result) {
   const total = result.empty.length + result.tooTall.length + result.floating.length + result.stairStack.length;
   if (total === 0) return "Sin problemas.";
   return `${total} aviso(s).`;
+}
+
+/**
+ * Tiles distintos (tileset + id) usados en el mapa, para vigilar sus
+ * prioridades. El editor no avisa al mod cuando se edita una propiedad en el
+ * editor de tilesets, asi que se compara a mano.
+ */
+export function usedTiles(ctx, mapId) {
+  const info = ctx.map.info(mapId);
+  if (!info) return [];
+  const layers = ctx.map.layers(mapId).filter((l) => l.kind !== "shadow");
+  const seen = new Map();
+  for (const layer of layers) {
+    for (let y = 0; y < info.height; y++) {
+      for (let x = 0; x < info.width; x++) {
+        const tileId = ctx.map.readTile(mapId, layer.index, x, y);
+        if (!tileId) continue;
+        let tilesetId = info.tilesetId;
+        if (ctx.map.readTileData) {
+          const data = ctx.map.readTileData(mapId, layer.index, x, y);
+          if (data && data.tilesetId != null) tilesetId = data.tilesetId;
+        }
+        seen.set(`${tilesetId}:${tileId}`, [tileId, tilesetId]);
+      }
+    }
+  }
+  return [...seen.values()];
+}
+
+/** Firma de las prioridades de esos tiles: cambia si se edita alguna. */
+export function prioritySignature(ctx, tiles) {
+  let sig = "";
+  for (const [tileId, tilesetId] of tiles) {
+    const props = resolveProps(ctx, tileId, tilesetId);
+    sig += (props ? props.priority || 0 : 0) + ",";
+  }
+  return sig;
 }

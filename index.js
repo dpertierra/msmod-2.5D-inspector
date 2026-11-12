@@ -1,8 +1,10 @@
 import { MAX_PRIORITY, TERRAIN_TAGS, HEIGHT_COLORS, heightColor } from "./config.js";
-import { cachedHeight, invalidateHeights, scanMap, summarize } from "./scan.js";
+import { cachedHeight, invalidateHeights, prioritySignature, scanMap, summarize, usedTiles } from "./scan.js";
 
 let overlayOn = false;
 let lastScan = null;
+let watchTimer = null;
+let watch = null;   // { mapId, tiles, sig }
 
 export function activate(ctx) {
   registerVocabulary(ctx);
@@ -18,17 +20,47 @@ export function activate(ctx) {
  * ese tile en TODOS los mapas a la vez, asi que ahi se tira entera.
  */
 function registerInvalidation(ctx) {
-  ctx.bus.on("map.tile.changed", (e) => invalidateHeights(e.mapId));
-  ctx.bus.on("map.batch.changed", (e) => invalidateHeights(e.mapId));
-  ctx.bus.on("map.loaded", (e) => invalidateHeights(e.mapId));
+  // Tirar la cache no basta: el canvas no se repinta solo hasta que haces
+  // scroll, y el overlay seguia mostrando las alturas viejas.
+  const refresh = (mapId) => {
+    invalidateHeights(mapId);
+    if (overlayOn) ctx.editor.requestRedraw?.();
+  };
+  // Pintar cambia que tiles se usan: la lista vigilada se rehace.
+  const retile = (mapId) => {
+    watch = null;
+    refresh(mapId);
+  };
+  ctx.bus.on("map.tile.changed", (e) => retile(e.mapId));
+  ctx.bus.on("map.batch.changed", (e) => retile(e.mapId));
+  ctx.bus.on("map.loaded", (e) => retile(e.mapId));
   ctx.bus.on("map.unloaded", (e) => invalidateHeights(e.mapId));
-  ctx.bus.on("undo", (e) => invalidateHeights(e.mapId));
-  ctx.bus.on("redo", (e) => invalidateHeights(e.mapId));
+  ctx.bus.on("undo", (e) => retile(e.mapId));
+  ctx.bus.on("redo", (e) => retile(e.mapId));
   ctx.bus.on("tileset.changed", (e) => {
-    // "selected" es solo cambiar de tileset en la paleta: no altera ninguna
-    // prioridad. Solo "edited"/"reloaded" tocan la geometria.
-    if (e.reason !== "selected") invalidateHeights(null);
+    // "selected" es solo cambiar de tileset en la paleta.
+    if (e.reason !== "selected") refresh(null);
   });
+
+  // El editor de tilesets NO emite tileset.changed al editar una prioridad
+  // (comprobado): con el overlay visible se compara la prioridad de los tiles
+  // usados en el mapa cada medio segundo. ponytail: O(tiles distintos) por
+  // tick; si el mapa usa miles, vigilar solo los del viewport.
+  watchTimer = setInterval(() => {
+    if (!overlayOn) return;
+    const mapId = ctx.editor.activeMapId();
+    if (mapId == null) return;
+    if (!watch || watch.mapId !== mapId) {
+      const tiles = usedTiles(ctx, mapId);
+      watch = { mapId, tiles, sig: prioritySignature(ctx, tiles) };
+      return;
+    }
+    const sig = prioritySignature(ctx, watch.tiles);
+    if (sig !== watch.sig) {
+      watch.sig = sig;
+      refresh(null);
+    }
+  }, 500);
 }
 
 /**
@@ -258,4 +290,7 @@ function groupRanges(items) {
 export function deactivate() {
   overlayOn = false;
   lastScan = null;
+  if (watchTimer) clearInterval(watchTimer);
+  watchTimer = null;
+  watch = null;
 }
