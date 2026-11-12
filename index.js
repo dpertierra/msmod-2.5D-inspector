@@ -109,13 +109,20 @@ function registerOverlay(ctx) {
       if (!map) return;
       const layers = ctx.map.layers(mapId).filter((l) => l.kind !== "shadow");
 
-      const size = info.tileSize * info.zoom;
+      // Maker Studio ya escala el lienzo con el zoom (no por la transformacion
+      // del contexto): multiplicar aqui dibujaba los cuadros a zoom^2 y
+      // descolocados. Se dibuja en pixeles de tile; el editor pone el zoom.
+      const k = 1;
+      const size = info.tileSize;
       // Solo las casillas visibles: un mapa grande a zoom bajo son decenas de
       // miles, y esto corre en cada frame.
       const x0 = Math.max(0, Math.floor(info.viewportX / info.tileSize));
       const y0 = Math.max(0, Math.floor(info.viewportY / info.tileSize));
-      const x1 = Math.min(map.width - 1, Math.ceil((info.viewportX + info.canvasWidth / info.zoom) / info.tileSize));
-      const y1 = Math.min(map.height - 1, Math.ceil((info.viewportY + info.canvasHeight / info.zoom) / info.tileSize));
+      // Rango holgado: vale tanto si canvasWidth viene en px de pantalla como
+      // en px de tile. Lo que cae fuera lo recorta el canvas.
+      const span = 1 / Math.min(info.zoom || 1, 1);
+      const x1 = Math.min(map.width - 1, Math.ceil((info.viewportX + info.canvasWidth * span) / info.tileSize) + 1);
+      const y1 = Math.min(map.height - 1, Math.ceil((info.viewportY + info.canvasHeight * span) / info.tileSize) + 1);
 
       c.save();
       c.textAlign = "center";
@@ -126,8 +133,8 @@ function registerOverlay(ctx) {
       for (let y = y0; y <= y1; y++) {
         for (let x = x0; x <= x1; x++) {
           const h = cachedHeight(ctx, mapId, layers, map.tilesetId, x, y);
-          const px = (x * info.tileSize - info.viewportX) * info.zoom;
-          const py = (y * info.tileSize - info.viewportY) * info.zoom;
+          const px = (x * info.tileSize - info.viewportX) * k;
+          const py = (y * info.tileSize - info.viewportY) * k;
 
           if (h === null) {
             // Casilla vacia: agujero negro en 2.5D.
